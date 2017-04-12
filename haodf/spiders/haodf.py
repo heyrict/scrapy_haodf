@@ -1,5 +1,6 @@
 import scrapy, re
 from haodf.items import *
+import time
 import pandas as pd, numpy as np
 
 def true_link(lnk):
@@ -58,14 +59,13 @@ class get_all_prov(scrapy.Spider):
         self.sectdict = {}
 
     def parse(self, response):
-        for prov in response.xpath('//div[@class="kstl"]/a'):
+        for prov in response.xpath('//div[contains(@class,"kstl")]/a'):
             provnam = prov.xpath('./text()').extract_first()
             provnum = self.curprovnum
             self.curprovnum += 1
             yield ProvItem(
                     prov_num = provnum,
-                    prov_nam = provnam,
-                    prov_link = response.urljoin(prov.xpath('./@href').extract_first())) # save prov data
+                    prov_nam = provnam)
             yield scrapy.Request(response.urljoin(prov.xpath('./@href').extract_first()),meta={'provnum':provnum},callback=self.parse_hosp)
 
 
@@ -78,15 +78,9 @@ class get_all_prov(scrapy.Spider):
             yield HospItem (
                     prov_num = provnum,
                     hosp_ix = hospnum,
-                    hosp_name = hospnam,
-                    hosp_link = response.urljoin(hosp.xpath('./@href').extract_first()))
-        # yield scrapy.Request(response.urljoin(hosp.xpath('./@href').extract_first()),meta={'provnum':provnum,'hospnum':hospnum},callback=self.parse_sect)
+                    hosp_name = hospnam)
+            yield scrapy.Request(response.urljoin(hosp.xpath('./@href').extract_first()),meta={'provnum':provnum,'hospnum':hospnum},callback=self.parse_sect)
 
-class get_all_sect(scrapy.Spider):
-    name = 'get_all_sect'
-    def __init__(self,*args,**kwargs):
-        super(get_all_sect,self).__init__(*args,**kwargs)
-        
     def parse_sect(self,response):
         provnum = response.meta['provnum']
         hospnum = response.meta['hospnum']
@@ -154,8 +148,16 @@ class get_all_sect(scrapy.Spider):
                 curpat['pat_nam'] = np.nan
         curpat['pat_sat_eff'] = sat_eff(pat.xpath('.//td[@class="gray"][contains(text(),"疗效")]/span/text()'))
         curpat['pat_sat_att'] = sat_att(pat.xpath('.//td[@class="gray"][contains(text(),"态度")]/span/text()'))
-
-        pass # add other cols
+        
+        patadditinfo = pat.xpath('.//tbody//td[@valign="top"][@height="40px"]/div')
+        for info in patadditinfo:
+            if not info.xpath('span/text()').extract_first(): continue
+            temp = namspc[i.xpath('span/text()').extract_first()[:-1]]
+            try:
+                tval = float(i.xpath('text()').extract_first()[:-1]) if temp=='cost' else eval(temp)[i.xpath('text()').extract_first()]
+            except:
+                tval = 0
+            curpat[temp] = tval
 
         yield curpat
 

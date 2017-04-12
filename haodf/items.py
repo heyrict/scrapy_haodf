@@ -16,7 +16,6 @@ class HaodfItem(scrapy.Item):
 class ProvItem(scrapy.Item):
     prov_num = scrapy.Field(serializer=int)
     prov_nam = scrapy.Field(serializer=str)
-    prov_link = scrapy.Field(serializer=str)
 
 class IllnessItem(scrapy.Item):
     illness_ix = scrapy.Field(serializer=int)
@@ -24,6 +23,8 @@ class IllnessItem(scrapy.Item):
     illness_link = scrapy.Field(serializer=str)
 
 class SectionItem(scrapy.Item):
+    prov_num = scrapy.Field(serializer=int)
+    hosp_ix = scrapy.Field(serializer=int)
     section_ix = scrapy.Field(serializer=int)
     section_name = scrapy.Field(serializer=str)
 
@@ -31,7 +32,6 @@ class HospItem(scrapy.Item):
     prov_num = scrapy.Field(serializer=int)
     hosp_ix = scrapy.Field(serializer=int)
     hosp_name = scrapy.Field(serializer=str)
-    hosp_link = scrapy.Field(serializer=str)
 
 class DoctItem(scrapy.Item):
     doct_ix = scrapy.Field(serializer=int)
