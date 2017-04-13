@@ -15,7 +15,7 @@ class HaodfItem(scrapy.Item):
 
 class ProvItem(scrapy.Item):
     prov_num = scrapy.Field(serializer=int)
-    prov_nam = scrapy.Field(serializer=str)
+    prov_name = scrapy.Field(serializer=str)
 
 class IllnessItem(scrapy.Item):
     illness_ix = scrapy.Field(serializer=int)
@@ -34,13 +34,12 @@ class HospItem(scrapy.Item):
     hosp_name = scrapy.Field(serializer=str)
 
 class DoctItem(scrapy.Item):
-    doct_ix = scrapy.Field(serializer=int)
-    doct_nam = scrapy.Field(serializer=str)
+    doct_ix = scrapy.Field(serializer=str)
     doct_hot = scrapy.Field(serializer=float)
     doct_tot_sat_eff = scrapy.Field(serializer=int)
     doct_tot_sat_att = scrapy.Field(serializer=int)
     doct_tot_NoP = scrapy.Field(serializer=int)
-    doct_NoP_in_2_weeks = scrapy.Field(serializer=int)
+    doct_NoP_in_2weeks = scrapy.Field(serializer=int)
 
 class PatItem(scrapy.Item):
     doct_ix = scrapy.Field(serializer=int)
@@ -53,6 +52,6 @@ class PatItem(scrapy.Item):
     pat_reservation = scrapy.Field(serializer=int)
     pat_status = scrapy.Field(serializer=int)
     pat_cost = scrapy.Field(serializer=float)
-    pat_nam = scrapy.Field()
+    pat_name = scrapy.Field()
 
 
