@@ -117,7 +117,7 @@ class get_all_prov(scrapy.Spider):
         sectnum = str(response.meta['sectnum'])
         doctnum = str(response.meta['doctnum'])
         # getdoct
-        doct_ix = '%s%s%s%s'%(provnum.zfill(2),hospnum.zfill(3),sectnum.zfill(3),doctnum.zfill(3))
+        doct_ix = '%s%s%s'%(hospnum.zfill(5),sectnum.zfill(3),doctnum.zfill(3))
         if response.xpath('//div[contains(@class,"doctor-home-page")]').extract_first():
             doct_hot = response.xpath('//div[@class="fl r-p-l"]/p[@class="r-p-l-score"]/text()').extract_first()
             tscore = response.xpath('//div[@class="fl score-part"]//text()').extract()

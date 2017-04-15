@@ -82,8 +82,8 @@ class SaveCSVPipeline(object):
                 item[tup] = [self.codesdict[tup][self.codesdict[tup]['name']==i]['code'].iloc[0] for i in item[tup]]
                 if type(item[tup])==list and len(item[tup])==1: item[tup]=item[tup][0]
         except Exception as e:
+            print('Error on processing %s:'%(tup))
             raise e
-            raise DropItem()
         return item
 
     def process_item(self, item, spider):
