@@ -47,8 +47,9 @@ class get_all_prov(scrapy.Spider):
         self.curprovnum = 0
         self.curhospnum = 0
         self.curdoctnum = 0
-        self.prevsectnum = None
+        #self.prevsectnum = None
         self.sectdict = {}
+        self.doct_counts = {}
 
     def parse(self, response):
         for prov in response.xpath('//div[contains(@class,"kstl")]/a'):
@@ -92,11 +93,16 @@ class get_all_prov(scrapy.Spider):
         provnum = response.meta['provnum']
         hospnum = response.meta['hospnum']
         sectnum = response.meta['sectnum']
-        if self.prevsectnum != sectnum:
-            self.curdoctnum = 0
-        else: self.curdoctnum += 1
-        doctnum = self.curdoctnum
-        self.prevsectnum = sectnum
+        #if self.prevsectnum != sectnum:
+        #    self.curdoctnum = 0
+        #else: self.curdoctnum += 1
+        #doctnum = self.curdoctnum
+        #self.prevsectnum = sectnum
+        if hospnum not in self.doct_counts:
+            self.doct_counts[hospnum] = 0
+        doctnum = self.doct_counts[hospnum]
+        self.doct_counts[hospnum] += 1
+
         for doct in response.xpath('//table[@id="doc_list_index"]//a[@class="name"]'):
             doctnam = doct.xpath('./text()').extract_first()
             yield scrapy.Request('http://localhost:8050/render.html?url='+response.urljoin(doct.xpath('./@href').extract_first()),meta={'provnum':provnum,'hospnum':hospnum,'sectnum':sectnum,'doctnum':doctnum},callback=self.parse_pat)

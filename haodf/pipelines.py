@@ -45,22 +45,35 @@ class SaveCSVPipeline(object):
                 if item[tup] == '暂无': item[tup] = None; continue
                 if not item[tup]: continue
                 # pat_time
-                if tup == 'pat_time': item[tup] = parser.parse(item[tup].split('：')[-1]).strftime('%Y%m%d'); continue
+                if tup == 'pat_time':
+                    try: item[tup] = parser.parse(item[tup].split('：')[-1]).strftime('%Y%m%d')
+                    except: item[tup] = None
+                    continue
                 # pat_cost
                 if tup == 'pat_cost': item[tup] = float(item[tup][:-1]); continue
-                # pat_ilns
-                if tup == 'pat_ilns':
-                    if item[tup] not in self.codesdict[tup]['name'].values:
-                        self.codesdict[tup] = self.codesdict[tup].append({'code':-len(self.codesdict[tup]),'name':item[tup]},ignore_index=True)
-                        self.ilns_dict = self.get_illness(self.codesdict['pat_ilns'])
-                    item[tup] = self.ilns_dict[tup]
+                # doct_tot_sat_(eff,att)
+                if tup in ('doct_tot_sat_eff','doct_tot_sat_att'):
+                    item[tup] = float(split_wrd(item[tup],'%',''))
                     continue
                 # else
-                if tup.split('_')[-1] not in ['status','att','eff','reservation','aim','reason']: continue
+                if tup.split('_')[-1] not in ['status','att','eff','reservation','aim','reason','ilns']: continue
                 if tup not in self.codesdict:
                     if '%s.csv'%tup in os.listdir(): self.codesdict[tup] = pd.read_csv('%s.csv'%tup)
                     else: self.codesdict[tup] = pd.DataFrame(columns=['code','name'])
 
+
+                # pat_ilns
+                if tup == 'pat_ilns':
+                    if item[tup] not in self.codesdict[tup]['name'].values:
+                        print('adding')
+                        self.codesdict[tup] = self.codesdict[tup].append({'code':-len(self.codesdict[tup]),'name':item[tup]},ignore_index=True)
+                        self.codesdict[tup].to_csv('%s.csv'%tup,index=False)
+                        self.ilns_dict = self.get_illness(self.codesdict[tup])
+                    # preprocessing
+                    # item[tup] = self.ilns_dict[item[tup]]
+                    continue
+
+                # others
                 item[tup] = split_wrd(str(item[tup]),list('，、；,; '))
                 for t in item[tup]:
                     if not t: continue
@@ -68,8 +81,10 @@ class SaveCSVPipeline(object):
                         self.codesdict[tup] = self.codesdict[tup].append({'code':len(self.codesdict[tup]),'name':t},ignore_index=True)
                         self.codesdict[tup].to_csv('%s.csv'%tup, index=False)
                 item[tup] = [self.codesdict[tup][self.codesdict[tup]['name']==i]['code'].iloc[0] for i in item[tup]]
+                if type(item[tup])==list and len(item[tup])==1: item[tup]=item[tup][0]
         except Exception as e:
-            raise DropItem(e)
+            raise e
+            raise DropItem()
         return item
 
     def process_item(self, item, spider):
@@ -98,6 +113,10 @@ class SaveCSVPipeline(object):
         return item
 
     def get_illness(self,illness_dict=None):
-        if illness_dict == None: illness_dict = pd.read_csv('pat_ilns.csv')
-        illness_dict_flipped = flip_dict_full(dict(illness_dict[['code','name',]].values))
+        try:
+            if illness_dict == None: illness_dict = pd.read_csv('pat_ilns.csv')
+            illness_dict_flipped = flip_dict_full(dict(illness_dict[['code','name',]].values))
+        except:
+            illness_dict = pd.read_csv('pat_ilns.csv')
+            illness_dict_flipped = flip_dict_full(dict(illness_dict[['code','name',]].values))
         return illness_dict_flipped

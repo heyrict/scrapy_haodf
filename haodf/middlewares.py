@@ -9,6 +9,24 @@ from scrapy import signals
 import random
 from scrapy.downloadermiddlewares.useragent import UserAgentMiddleware
 
+# Importing base64 library because we'll need it ONLY in case if the proxy we are going to use requires authentication
+# import base64 
+# Start your middleware class
+class ProxyMiddleware(object):
+    # overwrite process request
+    def process_request(self, request, spider):
+        # Set the location of the proxy
+        proxies = []
+        with open('../ippool/mt_proxy.txt','r') as f:
+            for i in f.readlines():
+                if i[0] in ['1','2','3','4','5','6','7','8','9']: proxies.append(i)
+            request.meta['proxy'] = random.choice(proxies)
+  
+        # Use the following lines if your proxy requires authentication
+        # proxy_user_pass = "USERNAME:PASSWORD"
+        # setup basic authentication for the proxy
+        # encoded_user_pass = base64.encodestring(proxy_user_pass)
+        # request.headers['Proxy-Authorization'] = 'Basic '# + encoded_user_password
 
 class HaodfSpiderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
