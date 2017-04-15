@@ -65,7 +65,6 @@ class SaveCSVPipeline(object):
                 # pat_ilns
                 if tup == 'pat_ilns':
                     if item[tup] not in self.codesdict[tup]['name'].values:
-                        print('adding')
                         self.codesdict[tup] = self.codesdict[tup].append({'code':-len(self.codesdict[tup]),'name':item[tup]},ignore_index=True)
                         self.codesdict[tup].to_csv('%s.csv'%tup,index=False)
                         self.ilns_dict = self.get_illness(self.codesdict[tup])
@@ -76,7 +75,7 @@ class SaveCSVPipeline(object):
                 # others
                 item[tup] = split_wrd(str(item[tup]),list('，、；,; '))
                 for t in item[tup]:
-                    if not t: continue
+                    if not t: item[tup].remove(t);continue
                     if t not in self.codesdict[tup]['name'].values:
                         self.codesdict[tup] = self.codesdict[tup].append({'code':len(self.codesdict[tup]),'name':t},ignore_index=True)
                         self.codesdict[tup].to_csv('%s.csv'%tup, index=False)
