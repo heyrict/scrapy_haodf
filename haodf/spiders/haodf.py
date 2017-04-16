@@ -18,7 +18,7 @@ def true_link(lnk):
 ##名称匹配
 namspc = {'看病目的':'pat_aim','疗效':'pat_sat_eff','态度':'pat_sat_att','选择该医生就诊的理由':'pat_reason','本次挂号途径':'pat_reservation','目前病情状态':'pat_status','本次看病费用总计':'pat_cost','患者':'pat_name'}
 ##名称匹配
-docsetnamspc = {'疗效满意度':'doct_tot_sat_eff','态度满意度':'doct_tot_sat_att','累计帮助患者数':'doct_tot_NoP','近两周帮助患者数':'doct_NoP_in_2weeks'}
+docsetnamspc = {'疗效满意度':'doct_tot_sat_eff','态度满意度':'doct_tot_sat_att','累计帮助患者数':'doct_tot_NoP','近两周帮助患者数':'doct_NoP_in_2weeks','诊治过的患者数':'doct_pat_treated','随访中的患者数':'doct_pat_on'}
 
 class get_illness(scrapy.Spider):
     name = 'get_illness'
@@ -119,17 +119,36 @@ class get_all_prov(scrapy.Spider):
         # getdoct
         doct_ix = '%s%s%s'%(hospnum.zfill(5),sectnum.zfill(3),doctnum.zfill(3))
         if response.xpath('//div[contains(@class,"doctor-home-page")]').extract_first():
-            doct_hot = response.xpath('//div[@class="fl r-p-l"]/p[@class="r-p-l-score"]/text()').extract_first()
-            tscore = response.xpath('//div[@class="fl score-part"]//text()').extract()
-            doctitem = DoctItem(doct_ix=doct_ix,doct_hot=doct_hot)
+            doct_info = response.xpath('//div[contains(@class,"doctor-home-page")]')
+            doct_hot = doct_info.xpath('.//div[@class="fl r-p-l"]/p[@class="r-p-l-score"]/text()').extract_first()
+            tscore = doct_info.xpath('.//div[@class="fl score-part"]//text()').extract()
+            qraised = doct_info.xpath('.//p[contains(text(),"患者提问")]/span/text()').extract()
+            if len(qraised) == 2: patq = qraised[0]; pata = qraised[1]
+            else: patq = pata = np.nan
+            pres = doct_info.xpath('//a[contains(@href,"yuyue")]/text()').extract_first()
+            pres = pres if pres else np.nan
+            doctitem = DoctItem(doct_ix=doct_ix,doct_hot=doct_hot,doct_q=patq,doct_a=pata,doct_res=pres,doct_tot_sat_eff=np.nan,doct_tot_sat_att=np.nan)
             for scl in tscore:
                 sclp = scl.strip().split('：')
                 #self.log('sclp=%s'%sclp,level=log.WARNING)
                 try:
                     if len(sclp)==2: doctitem[docsetnamspc[sclp[0].strip()]] = sclp[1].strip()
-                except: doctitem[docsetnamspc[sclp[0].strip()]] = None
-            yield doctitem# save doct item
+                except: doctitem[docsetnamspc[sclp[0].strip()]] = np.nan
 
+            doct_panel = doct_info.xpath('//div[@id="bp_doctor_getvotestar"]//div[@class=rtdiv rtdivgao]')
+            if doct_panel.extract_first():
+                for doct_panel_info in doct_panel.xpath('.//tr'):
+                    if doct_panel_info.xpath('.//span').extract_first():
+                        doctitem['doct_stars'] = len(doct_panel.xpath('.//span/img[contains(@src,"liang")]'))
+                    else:
+                        sclp = split_wrd(doct_panel_info.xpath('./td/text()'),'：')
+                        try:
+                            doctitem[docsetnamspc[sclp[0].strip()]] = sclp[1].strip()
+                        except: doctitem[docsetnamspc[sclp[0].strip()]] = np.nan
+                        
+            yield doctitem
+
+        # get all pat
         for pat in response.xpath('//table[@class="doctorjy"]'):
             curpat = PatItem(doct_ix=doct_ix)
             curpat['pat_time'] = pat.xpath('.//td[contains(@style,"text-align:right;")]/text()').extract_first()
@@ -149,9 +168,11 @@ class get_all_prov(scrapy.Spider):
                 else:
                     curpat['pat_name'] = np.nan
             try:curpat['pat_sat_eff'] = pat.xpath('.//td[@class="gray"][contains(text(),"疗效")]/span/text()').extract_first()
-            except:curpat['pat_sat_eff'] = None
+            except:curpat['pat_sat_eff'] = np.nan
             try:curpat['pat_sat_att'] = pat.xpath('.//td[@class="gray"][contains(text(),"态度")]/span/text()').extract_first()
-            except:curpat['pat_sat_att'] = None
+            except:curpat['pat_sat_att'] = np.nan
+
+            curpat['pat_sukcd'] = 1 if pat.xpath('//a[contains(text(),"通过本站就诊")]').extract_first() else np.nan
         
             patadditinfo = pat.xpath('.//tbody//td[@valign="top"][@height="40px"]/div')
             for info in patadditinfo:

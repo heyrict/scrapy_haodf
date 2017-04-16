@@ -17,23 +17,23 @@ class SaveCSVPipeline(object):
         if 'provfile.csv' in dirls:
             self.provdf = pd.read_csv('provfile.csv')
         else:
-            self.provdf = pd.DataFrame(columns=['prov_num','prov_name'])
+            self.provdf = pd.DataFrame()
         if 'hospfile.csv' in dirls:
             self.hospdf = pd.read_csv('hospfile.csv')
         else:
-            self.hospdf = pd.DataFrame(columns=['prov_num','hosp_ix','hosp_name'])
+            self.hospdf = pd.DataFrame()
         if 'sectfile.csv' in dirls:
             self.sectdf = pd.read_csv('sectfile.csv')
         else:
-            self.sectdf = pd.DataFrame(columns=['prov_num','hosp_ix','section_ix','section_name'])
+            self.sectdf = pd.DataFrame()
         if 'doctfile.csv' in dirls:
             self.doctdf = pd.read_csv('doctfile.csv')
         else:
-            self.doctdf = pd.DataFrame(columns=['doct_ix','doct_hot','doct_tot_sat_eff', 'doct_tot_sat_att','doct_tot_NoP','doct_NoP_in_2weeks'])
+            self.doctdf = pd.DataFrame()
         if 'patfile.csv' in dirls:
             self.patdf = pd.read_csv('patfile.csv')
         else:
-            self.patdf = pd.DataFrame(columns=['doct_ix','pat_name','pat_time','pat_ilns','pat_reason', 'pat_aim','pat_sat_eff','pat_sat_att','pat_reservation','pat_cost', 'pat_status'])
+            self.patdf = pd.DataFrame()
 
         self.codesdict = {}
         self.ilns_dict = self.get_illness()
@@ -41,13 +41,14 @@ class SaveCSVPipeline(object):
     def serialize_item(self,item):
         try:
             for tup in list(item):
-                item[tup] = str(item[tup]).strip()
+                if type(item[tup])==float and np.isnan(item[tup]): continue
+                if type(item[tup])!=list: item[tup] = str(item[tup]).strip()
                 if item[tup] == '暂无': item[tup] = None; continue
                 if not item[tup]: continue
                 # pat_time
                 if tup == 'pat_time':
                     try: item[tup] = parser.parse(item[tup].split('：')[-1]).strftime('%Y%m%d')
-                    except: item[tup] = None
+                    except: item[tup] = np.nan
                     continue
                 # pat_cost
                 if tup == 'pat_cost': item[tup] = float(item[tup][:-1]); continue
@@ -73,13 +74,18 @@ class SaveCSVPipeline(object):
                     continue
 
                 # others
-                item[tup] = split_wrd(str(item[tup]),list('，、；,; '))
+                if type(item[tup])==float and np.isnan(item[tup]): pass
+                elif type(item[tup])==type(None): pass
+                else: item[tup] = split_wrd(str(item[tup]),list('，、；,; '))
                 for t in item[tup]:
                     if not t: item[tup].remove(t);continue
                     if t not in self.codesdict[tup]['name'].values:
                         self.codesdict[tup] = self.codesdict[tup].append({'code':len(self.codesdict[tup]),'name':t},ignore_index=True)
                         self.codesdict[tup].to_csv('%s.csv'%tup, index=False)
-                item[tup] = [self.codesdict[tup][self.codesdict[tup]['name']==i]['code'].iloc[0] for i in item[tup]]
+                try:
+                    item[tup] = [self.codesdict[tup][self.codesdict[tup]['name']==i]['code'].iloc[0] for i in item[tup]]
+                except e: print('%s\n%s'%(item[tup],e))
+
                 if type(item[tup])==list and len(item[tup])==1: item[tup]=item[tup][0]
         except Exception as e:
             print('Error on processing %s:'%(tup))

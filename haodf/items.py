@@ -40,6 +40,8 @@ class DoctItem(scrapy.Item):
     doct_tot_sat_att = scrapy.Field(serializer=int)
     doct_tot_NoP = scrapy.Field(serializer=int)
     doct_NoP_in_2weeks = scrapy.Field(serializer=int)
+    doct_q = doct_a = scrapy.Field()
+    doct_res = scrapy.Field()
 
 class PatItem(scrapy.Item):
     doct_ix = scrapy.Field(serializer=int)
@@ -53,5 +55,5 @@ class PatItem(scrapy.Item):
     pat_status = scrapy.Field(serializer=int)
     pat_cost = scrapy.Field(serializer=float)
     pat_name = scrapy.Field()
-
+    pat_sukcd = scrapy.Field()
 
