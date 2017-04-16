@@ -4,6 +4,7 @@ from haodf.items import *
 import time
 import pandas as pd, numpy as np
 from scrapy_splash import SplashRequest
+from data_processing import *
 
 def true_link(lnk):
     global count,totcount,gdr
@@ -64,15 +65,18 @@ class get_all_prov(scrapy.Spider):
 
     def parse_hosp(self, response):
         provnum = response.meta['provnum']
-        for hosp in response.xpath('//li/a[@target="_blank"]'):
-            hospnam = hosp.xpath('./text()').extract_first()
+        for hosp in response.xpath('//div[@class="ct"]//li'):
+            hospnam = hosp.xpath('./a[@target="_blank"]/text()').extract_first()
+            if not hospnam: continue
+            hospinfo = hosp.xpath('./span/text()').extract_first()
             hospnum = self.curhospnum
             self.curhospnum += 1
             yield HospItem (
                     prov_num = provnum,
                     hosp_ix = hospnum,
-                    hosp_name = hospnam)
-            yield scrapy.Request(response.urljoin(hosp.xpath('./@href').extract_first()),meta={'provnum':provnum,'hospnum':hospnum},callback=self.parse_sect)
+                    hosp_name = hospnam,
+                    hosp_info = hospinfo)
+            yield scrapy.Request(response.urljoin(hosp.xpath('./a[@target="_blank"]/@href').extract_first()),meta={'provnum':provnum,'hospnum':hospnum},callback=self.parse_sect)
 
     def parse_sect(self,response):
         provnum = response.meta['provnum']
@@ -119,32 +123,58 @@ class get_all_prov(scrapy.Spider):
         # getdoct
         doct_ix = '%s%s%s'%(hospnum.zfill(5),sectnum.zfill(3),doctnum.zfill(3))
         if response.xpath('//div[contains(@class,"doctor-home-page")]').extract_first():
-            doct_info = response.xpath('//div[contains(@class,"doctor-home-page")]')
-            doct_hot = doct_info.xpath('.//div[@class="fl r-p-l"]/p[@class="r-p-l-score"]/text()').extract_first()
-            tscore = doct_info.xpath('.//div[@class="fl score-part"]//text()').extract()
-            qraised = doct_info.xpath('.//p[contains(text(),"患者提问")]/span/text()').extract()
+            ## doct hot
+            doct_hot = response.xpath('//div[@class="fl r-p-l"]/p[@class="r-p-l-score"]/text()').extract_first()
+            ## site
+            doct_site = 1 if response.xpath('.//div[contains(@class,"doctor-home-page")]//a/text()').extract_first() else 0
+            ## class
+            doct_class = np.nan
+            doct_class_raw = response.xpath('.//div[@class="lt"]/table[not(@class)]/tbody/tr')
+            for dc in doct_class_raw:
+                if re.findall('职',''.join(dc.xpath('./td/text()').extract())):
+                    doct_class = dc.xpath('./td/text()').extract()[-1].split()
+                    break
+
+            ## xxzx
+            xxzx = response.xpath('.//table[@class="doct_data_xxzx"]')
+            ### qraised
+            qraised = xxzx.xpath('.//p[contains(text(),"患者提问")]/span/text()').extract()
             if len(qraised) == 2: patq = qraised[0]; pata = qraised[1]
             else: patq = pata = np.nan
-            pres = doct_info.xpath('//a[contains(@href,"yuyue")]/text()').extract_first()
+            ### pres
+            pres = xxzx.xpath('//a[contains(@href,"yuyue")]/text()').extract_first()
             pres = pres if pres else np.nan
-            doctitem = DoctItem(doct_ix=doct_ix,doct_hot=doct_hot,doct_q=patq,doct_a=pata,doct_res=pres,doct_tot_sat_eff=np.nan,doct_tot_sat_att=np.nan)
+            ### tel
+            telprice = xxzx.xpath('.//span[@class="show_price"]/text()').extract()
+            teldurat = xxzx.xpath('.//span[@class="show_duration"]/text()').extract()
+            doct_telp = sum([re.findall('[0-9]+',i) for i in telprice],[]) if telprice else np.nan
+            doct_teld = sum([re.findall('[0-9]+',i) for i in teldurat],[]) if telprice else np.nan
+
+            doctitem = DoctItem(doct_ix=doct_ix,doct_hot=doct_hot,doct_q=patq,doct_a=pata,doct_res=pres,doct_tot_sat_eff=np.nan,doct_tot_sat_att=np.nan,doct_telp=doct_telp,doct_teld=doct_teld,doct_site=doct_site,doct_class=doct_class)
+            ## tscore
+            tscore = response.xpath('//div[@class="fl score-part"]/p/span[@class="r-p-score"]//text()').extract()
             for scl in tscore:
                 sclp = scl.strip().split('：')
                 #self.log('sclp=%s'%sclp,level=log.WARNING)
                 try:
-                    if len(sclp)==2: doctitem[docsetnamspc[sclp[0].strip()]] = sclp[1].strip()
+                    if len(sclp)==2: doctitem[docsetnamspc[sclp[0].strip()]] = float(sclp[1].strip()[:-1])
                 except: doctitem[docsetnamspc[sclp[0].strip()]] = np.nan
 
-            doct_panel = doct_info.xpath('//div[@id="bp_doctor_getvotestar"]//div[@class=rtdiv rtdivgao]')
+
+            # service star
+            doct_panel = response.xpath('//div[@id="bp_doctor_getvotestar"]//div[@class="rtdiv rtdivgao"]')
             if doct_panel.extract_first():
                 for doct_panel_info in doct_panel.xpath('.//tr'):
                     if doct_panel_info.xpath('.//span').extract_first():
                         doctitem['doct_stars'] = len(doct_panel.xpath('.//span/img[contains(@src,"liang")]'))
                     else:
-                        sclp = split_wrd(doct_panel_info.xpath('./td/text()'),'：')
+                        sclp = split_wrd(doct_panel_info.xpath('./td/text()').extract_first(),'：')
+                        if len(sclp)!=2: print('sclp unrecognized\n%s'%sclp);continue
                         try:
                             doctitem[docsetnamspc[sclp[0].strip()]] = sclp[1].strip()
-                        except: doctitem[docsetnamspc[sclp[0].strip()]] = np.nan
+                        except:
+                            try: doctitem[docsetnamspc[sclp[0].strip()]] = re.findall('[0-9]+',sclp[1])
+                            except: doctitem[docsetnamspc[sclp[0].strip()]] = np.nan
                         
             yield doctitem
 

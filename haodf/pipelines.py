@@ -45,6 +45,8 @@ class SaveCSVPipeline(object):
                 if type(item[tup])!=list: item[tup] = str(item[tup]).strip()
                 if item[tup] == '暂无': item[tup] = None; continue
                 if not item[tup]: continue
+                # doct_ix
+                if tup == 'doct_ix': continue
                 # pat_time
                 if tup == 'pat_time':
                     try: item[tup] = parser.parse(item[tup].split('：')[-1]).strftime('%Y%m%d')
@@ -56,8 +58,15 @@ class SaveCSVPipeline(object):
                 if tup in ('doct_tot_sat_eff','doct_tot_sat_att'):
                     item[tup] = float(split_wrd(item[tup],'%',''))
                     continue
+                
                 # else
-                if tup.split('_')[-1] not in ['status','att','eff','reservation','aim','reason','ilns']: continue
+                if type(item[tup]==str):
+                    try: t = float(item[tup])
+                    except: 
+                        try:item[tup] = float(item[tup][:-1])
+                        except: pass
+                if type(item[tup])==list and len(item[tup])==1: item[tup]=item[tup][0]
+                if tup.split('_')[-1] not in ['status','att','eff','reservation','aim','reason','ilns','class']: continue
                 if tup not in self.codesdict:
                     if '%s.csv'%tup in os.listdir(): self.codesdict[tup] = pd.read_csv('%s.csv'%tup)
                     else: self.codesdict[tup] = pd.DataFrame(columns=['code','name'])
@@ -76,7 +85,7 @@ class SaveCSVPipeline(object):
                 # others
                 if type(item[tup])==float and np.isnan(item[tup]): pass
                 elif type(item[tup])==type(None): pass
-                else: item[tup] = split_wrd(str(item[tup]),list('，、；,; '))
+                elif type(item[tup])==str: item[tup] = split_wrd(str(item[tup]),list('，、；,; '))
                 for t in item[tup]:
                     if not t: item[tup].remove(t);continue
                     if t not in self.codesdict[tup]['name'].values:
