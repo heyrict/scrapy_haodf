@@ -40,10 +40,10 @@ class get_illness(scrapy.Spider):
                 self.all_links += curlnk
                 yield scrapy.Request(response.urljoin(curlnk),callback=self.parse_sections)
 
-class get_all_prov(scrapy.Spider):
-    name = 'get_all_prov'
+class haodf(scrapy.Spider):
+    name = 'haodf'
     def __init__(self, *args, **kwargs):
-        super(get_all_prov, self).__init__(*args, **kwargs)
+        super(haodf, self).__init__(*args, **kwargs)
         self.start_urls = ['http://www.haodf.com/yiyuan/all/list.htm']
         self.curprovnum = 0
         self.curhospnum = 0
@@ -169,7 +169,7 @@ class get_all_prov(scrapy.Spider):
                         doctitem['doct_stars'] = len(doct_panel.xpath('.//span/img[contains(@src,"liang")]'))
                     else:
                         sclp = split_wrd(doct_panel_info.xpath('./td/text()').extract_first(),'：')
-                        if len(sclp)!=2: print('sclp unrecognized\n%s'%sclp);continue
+                        if len(sclp)!=2: continue
                         try:
                             doctitem[docsetnamspc[sclp[0].strip()]] = sclp[1].strip()
                         except:
@@ -221,3 +221,42 @@ class get_all_prov(scrapy.Spider):
         if next_link:
             yield scrapy.Request('http://localhost:8050/render.html?url='+response.urljoin(next_link),meta={'provnum':provnum,'hospnum':hospnum,'sectnum':sectnum,'doctnum':doctnum},callback=self.parse_pat)
 
+
+
+class get_all_prov(scrapy.Spider):
+    name = 'get_all_hosp'
+    def __init__(self, *args, **kwargs):
+        super(get_all_prov, self).__init__(*args, **kwargs)
+        self.start_urls = ['http://www.haodf.com/yiyuan/all/list.htm']
+        self.curprovnum = 0
+        self.curhospnum = 0
+        self.curdoctnum = 0
+        #self.prevsectnum = None
+        self.sectdict = {}
+        self.doct_counts = {}
+
+    def parse(self, response):
+        for prov in response.xpath('//div[contains(@class,"kstl")]/a'):
+            provnam = prov.xpath('./text()').extract_first()
+            provnum = self.curprovnum
+            self.curprovnum += 1
+            yield ProvItem(
+                    prov_num = provnum,
+                    prov_name = provnam)
+            yield scrapy.Request(response.urljoin(prov.xpath('./@href').extract_first()),meta={'provnum':provnum},callback=self.parse_hosp)
+
+
+    def parse_hosp(self, response):
+        provnum = response.meta['provnum']
+        for hosp in response.xpath('//div[@class="ct"]//li'):
+            hospnam = hosp.xpath('./a[@target="_blank"]/text()').extract_first()
+            if not hospnam: continue
+            hospinfo = hosp.xpath('./span/text()').extract_first()
+            hospnum = self.curhospnum
+            self.curhospnum += 1
+            yield HospItem (
+                    prov_num = provnum,
+                    hosp_ix = hospnum,
+                    hosp_name = hospnam,
+                    hosp_info = hospinfo)
+ 

@@ -93,7 +93,8 @@ class SaveCSVPipeline(object):
                         self.codesdict[tup].to_csv('%s.csv'%tup, index=False)
                 try:
                     item[tup] = [self.codesdict[tup][self.codesdict[tup]['name']==i]['code'].iloc[0] for i in item[tup]]
-                except e: print('%s\n%s'%(item[tup],e))
+                except Exception as e:
+                    print('%s\n%s'%(item[tup],e))
 
                 if type(item[tup])==list and len(item[tup])==1: item[tup]=item[tup][0]
         except Exception as e:
