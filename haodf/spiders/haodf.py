@@ -126,7 +126,7 @@ class haodf(scrapy.Spider):
             ## doct hot
             doct_hot = response.xpath('//div[@class="fl r-p-l"]/p[@class="r-p-l-score"]/text()').extract_first()
             ## site
-            doct_site = 1 if response.xpath('.//div[contains(@class,"doctor-home-page")]//a/text()').extract_first() else 0
+            doct_site = response.xpath('.//div[contains(@class,"doctor-home-page")]//a/text()').extract_first()
             ## class
             doct_class = np.nan
             doct_class_raw = response.xpath('.//div[@class="lt"]/table[not(@class)]/tbody/tr')
@@ -217,7 +217,7 @@ class haodf(scrapy.Spider):
         if all_link:
             yield scrapy.Request(response.urljoin(all_link),meta={'provnum':provnum,'hospnum':hospnum,'sectnum':sectnum,'doctnum':doctnum},callback=self.parse_pat)
         
-        next_link = response.xpath('//a[@class="p_num"][text()="下一页"]/@href')
+        next_link = response.xpath('//a[@class="p_num"][text()="下一页"]/@href').extract_first()
         if next_link:
             yield scrapy.Request('http://localhost:8050/render.html?url='+response.urljoin(next_link),meta={'provnum':provnum,'hospnum':hospnum,'sectnum':sectnum,'doctnum':doctnum},callback=self.parse_pat)
 
