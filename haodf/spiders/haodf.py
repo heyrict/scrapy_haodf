@@ -20,6 +20,9 @@ def true_link(lnk):
 namspc = {'看病目的':'pat_aim','疗效':'pat_sat_eff','态度':'pat_sat_att','选择该医生就诊的理由':'pat_reason','本次挂号途径':'pat_reservation','目前病情状态':'pat_status','本次看病费用总计':'pat_cost','患者':'pat_name'}
 ##名称匹配
 docsetnamspc = {'疗效满意度':'doct_tot_sat_eff','态度满意度':'doct_tot_sat_att','累计帮助患者数':'doct_tot_NoP','近两周帮助患者数':'doct_NoP_in_2weeks','诊治过的患者数':'doct_pat_treated','随访中的患者数':'doct_pat_on'}
+##名称匹配
+lllnamspc = {'总 文 章：':'lll_articles','总 患 者：':'lll_patients','微信诊后报道患者：':'lll_wechat','总诊后报道患者：':'lll_check','患者投票：':'lll_votes','感 谢 信：':'lll_thxlet','心意礼物：':'lll_presnt','开通时间：':'lll_signup'}
+
 
 class get_illness(scrapy.Spider):
     name = 'get_illness'
@@ -127,6 +130,7 @@ class haodf(scrapy.Spider):
             doct_hot = response.xpath('//div[@class="fl r-p-l"]/p[@class="r-p-l-score"]/text()').extract_first()
             ## site
             doct_site = response.xpath('.//div[contains(@class,"doctor-home-page")]//a/text()').extract_first()
+            yield scrapy.Request(response.urljoin(doct_site),meta={'doctix':doct_ix},callback=self.parse_lll)
             ## class
             doct_class = np.nan
             doct_class_raw = response.xpath('.//div[@class="lt"]/table[not(@class)]/tbody/tr')
@@ -220,43 +224,31 @@ class haodf(scrapy.Spider):
         next_link = response.xpath('//a[@class="p_num"][text()="下一页"]/@href').extract_first()
         if next_link:
             yield scrapy.Request('http://localhost:8050/render.html?url='+response.urljoin(next_link),meta={'provnum':provnum,'hospnum':hospnum,'sectnum':sectnum,'doctnum':doctnum},callback=self.parse_pat)
+        
+    def parse_lll(self, response):
+        doctix=response.meta['doctix']
 
+        doct_info = response.xpath('//ul[@class="space_statistics"]')
+        lllitem = LLLItem()
+        lllitem['lll_doctix'] = doctix
+        for i in doct_info.xpath('./li'):
+            text = i.xpath('./text()').extract_first()
+            if text in lllnamspc:
+                lllitem[lllnamspc[text]] = i.xpath('./span/text()').extract_first()
 
+        yield lllitem
 
-class get_all_prov(scrapy.Spider):
-    name = 'get_all_hosp'
-    def __init__(self, *args, **kwargs):
-        super(get_all_prov, self).__init__(*args, **kwargs)
-        self.start_urls = ['http://www.haodf.com/yiyuan/all/list.htm']
-        self.curprovnum = 0
-        self.curhospnum = 0
-        self.curdoctnum = 0
-        #self.prevsectnum = None
-        self.sectdict = {}
-        self.doct_counts = {}
+        yield scrapy.Request(response.url+r'/zixun/list.htm',callback=self.parse_lllservice,meta={'doctix':doctix})
 
-    def parse(self, response):
-        for prov in response.xpath('//div[contains(@class,"kstl")]/a'):
-            provnam = prov.xpath('./text()').extract_first()
-            provnum = self.curprovnum
-            self.curprovnum += 1
-            yield ProvItem(
-                    prov_num = provnum,
-                    prov_name = provnam)
-            yield scrapy.Request(response.urljoin(prov.xpath('./@href').extract_first()),meta={'provnum':provnum},callback=self.parse_hosp)
+    def parse_lllservice(self, response):
+        doctix=response.meta['doctix']
+        
+        for i in response.xpath('//div[@class="zixun_list"]/table/tbody/tr/td/p'):
+            lllsevitem = LLLSevItem()
+            lllsevitem['lll_sev_doctix'] = doctix
+            lllsevitem['lll_sev_tags'] = i.xpath('./img/@title').extract()
+            yield scrapy.Request(response.urljoin(i.xpath('./a/@href')),meta={'lllsevitem':lllsevitem})
 
+        next_page = response.xpath('//a[contains(text(),"下一页")]/@href').extract_first()
+        if next_page: yield scrapy.Request(response.urljoin(next_page),meta=response.meta,callback=self.parse_lllservice)
 
-    def parse_hosp(self, response):
-        provnum = response.meta['provnum']
-        for hosp in response.xpath('//div[@class="ct"]//li'):
-            hospnam = hosp.xpath('./a[@target="_blank"]/text()').extract_first()
-            if not hospnam: continue
-            hospinfo = hosp.xpath('./span/text()').extract_first()
-            hospnum = self.curhospnum
-            self.curhospnum += 1
-            yield HospItem (
-                    prov_num = provnum,
-                    hosp_ix = hospnum,
-                    hosp_name = hospnam,
-                    hosp_info = hospinfo)
- 

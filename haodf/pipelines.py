@@ -34,9 +34,19 @@ class SaveCSVPipeline(object):
             self.patdf = pd.read_csv('patfile.csv')
         else:
             self.patdf = pd.DataFrame()
+        if 'lllfile.csv' in dirls:
+            self.llldf = pd.read_csv('lllfile.csv')
+        else:
+            self.llldf = pd.DataFrame()
+        if 'lllsevfile.csv' in dirls:
+            self.lllsevdf = pd.read_csv('lllsevfile.csv')
+        else:
+            self.lllsevdf = pd.DataFrame()
+        
 
         self.codesdict = {}
-        self.ilns_dict = self.get_illness()
+        self.ilns_dict =self.get_illness()
+        self.lllsevtags_dict = {}
 
     def serialize_item(self,item):
         try:
@@ -58,7 +68,8 @@ class SaveCSVPipeline(object):
                 if tup in ('doct_tot_sat_eff','doct_tot_sat_att'):
                     item[tup] = float(split_wrd(item[tup],'%',''))
                     continue
-                
+               
+
                 # else
                 if type(item[tup]==str):
                     try: t = float(item[tup])
@@ -124,6 +135,14 @@ class SaveCSVPipeline(object):
         if type(item)==type(PatItem()):
             self.patdf = self.patdf.append(pd.Series(dict(item)),ignore_index=True)
             self.patdf.to_csv('patfile.csv',index=False)
+
+        if type(item)==type(LLLItem()):
+            self.llldf = self.llldf.append(pd.Series(dict(item)),ignore_index=True)
+            self.llldf.to_csv('lllfile.csv',index=False)
+
+        if type(item)==type(LLLSevItem()):
+            self.lllsevdf = self.lllsevdf.append(pd.Series(dict(item)),ignore_index=True)
+            self.lllsevdf.to_csv('lllsevfile.csv',index=False)
 
         return item
 

@@ -64,3 +64,18 @@ class PatItem(scrapy.Item):
     pat_name = scrapy.Field()
     pat_sukcd = scrapy.Field()
 
+class LLLItem(scrapy.Item):
+    lll_doctix = scrapy.Field()
+    lll_articles = scrapy.Field()
+    lll_patients = scrapy.Field()
+    lll_wechat = scrapy.Field()
+    lll_check = scrapy.Field()
+    lll_votes = scrapy.Field()
+    lll_thxlet = scrapy.Field()
+    lll_presnt = scrapy.Field()
+    lll_signup = scrapy.Field()
+
+class LLLSevItem(scrapy.Item):
+    lll_sev_doctix = scrapy.Field(serializer=int)
+    lll_sev_tags = scrapy.Field()
+    lll_sev_date = scrapy.Field()
