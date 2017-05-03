@@ -11,6 +11,8 @@ from dateutil import parser
 from scrapy.exceptions import DropItem
 from data_processing import *
 
+SIZE_OF_EVERY_BACKUP_FILE=30000
+CACHE=500
 class SaveCSVPipeline(object):
     def __init__(self):
         dirls = os.listdir()
@@ -45,8 +47,7 @@ class SaveCSVPipeline(object):
         
 
         self.codesdict = {}
-        self.ilns_dict =self.get_illness()
-        self.lllsevtags_dict = {}
+        self.ilns_dict = self.get_illness()
 
     def serialize_item(self,item):
         try:
@@ -77,7 +78,7 @@ class SaveCSVPipeline(object):
                         try:item[tup] = float(item[tup][:-1])
                         except: pass
                 if type(item[tup])==list and len(item[tup])==1: item[tup]=item[tup][0]
-                if tup.split('_')[-1] not in ['status','att','eff','reservation','aim','reason','ilns','class']: continue
+                if tup.split('_')[-1] not in ['status','att','eff','reservation','aim','reason','ilns','class','tags']: continue
                 if tup not in self.codesdict:
                     if '%s.csv'%tup in os.listdir(): self.codesdict[tup] = pd.read_csv('%s.csv'%tup)
                     else: self.codesdict[tup] = pd.DataFrame(columns=['code','name'])
@@ -87,7 +88,7 @@ class SaveCSVPipeline(object):
                 if tup == 'pat_ilns':
                     if item[tup] not in self.codesdict[tup]['name'].values:
                         self.codesdict[tup] = self.codesdict[tup].append({'code':-len(self.codesdict[tup]),'name':item[tup]},ignore_index=True)
-                        self.codesdict[tup].to_csv('%s.csv'%tup,index=False)
+                        self.codesdict[tup].to_csv('%s.csv'%tup,index=False,encoding='utf-8')
                         self.ilns_dict = self.get_illness(self.codesdict[tup])
                     # preprocessing
                     # item[tup] = self.ilns_dict[item[tup]]
@@ -95,19 +96,22 @@ class SaveCSVPipeline(object):
 
                 # others
                 if type(item[tup])==float and np.isnan(item[tup]): pass
-                elif type(item[tup])==type(None): pass
-                elif type(item[tup])==str: item[tup] = split_wrd(str(item[tup]),list('，、；,; '))
-                for t in item[tup]:
-                    if not t: item[tup].remove(t);continue
-                    if t not in self.codesdict[tup]['name'].values:
-                        self.codesdict[tup] = self.codesdict[tup].append({'code':len(self.codesdict[tup]),'name':t},ignore_index=True)
-                        self.codesdict[tup].to_csv('%s.csv'%tup, index=False)
-                try:
-                    item[tup] = [self.codesdict[tup][self.codesdict[tup]['name']==i]['code'].iloc[0] for i in item[tup]]
-                except Exception as e:
-                    print('%s\n%s'%(item[tup],e))
-
-                if type(item[tup])==list and len(item[tup])==1: item[tup]=item[tup][0]
+                elif type(item[tup])==type(None): item[tup] = np.nan
+                elif type(item[tup])==str: item[tup] = split_wrd(item[tup].strip(),list('，、；,; '))
+                if type(item[tup])==list:
+                    for t in item[tup]:
+                        if not t: item[tup].remove(t);continue
+                        if t not in self.codesdict[tup]['name'].values:
+                            self.codesdict[tup] = self.codesdict[tup].append({'code':len(self.codesdict[tup]),'name':t},ignore_index=True)
+                            self.codesdict[tup].to_csv('%s.csv'%tup, index=False,encoding='utf-8')
+                    try:
+                        item[tup] = [self.codesdict[tup][self.codesdict[tup]['name']==i]['code'].iloc[0] for i in item[tup]]
+                    except Exception as e:
+                        print('%s\n%s'%(item[tup],e))
+                
+                    if len(item[tup])==1: item[tup]=item[tup][0]
+                    elif not item[tup]: item[tup]=np.nan
+                    
         except Exception as e:
             print('Error on processing %s:'%(tup))
             raise e
@@ -118,31 +122,49 @@ class SaveCSVPipeline(object):
 
         if type(item)==type(ProvItem()):
             self.provdf = self.provdf.append(pd.Series(dict(item)),ignore_index=True)
-            self.provdf.to_csv('provfile.csv',index=False)
+            self.provdf.to_csv('provfile.csv',index=False,encoding='utf-8')
 
         if type(item)==type(HospItem()):
             self.hospdf = self.hospdf.append(pd.Series(dict(item)),ignore_index=True)
-            self.hospdf.to_csv('hospfile.csv',index=False)
+            self.hospdf.to_csv('hospfile.csv',index=False,encoding='utf-8')
 
         if type(item)==type(SectionItem()):
             self.sectdf = self.sectdf.append(pd.Series(dict(item)),ignore_index=True)
-            self.sectdf.to_csv('sectfile.csv',index=False)
+            self.sectdf.to_csv('sectfile.csv',index=False,encoding='utf-8')
 
         if type(item)==type(DoctItem()):
             self.doctdf = self.doctdf.append(pd.Series(dict(item)),ignore_index=True)
-            self.doctdf.to_csv('doctfile.csv',index=False)
+            self.doctdf.to_csv('doctfile.csv',index=False,encoding='utf-8')
 
         if type(item)==type(PatItem()):
             self.patdf = self.patdf.append(pd.Series(dict(item)),ignore_index=True)
-            self.patdf.to_csv('patfile.csv',index=False)
+            patlen = len(self.patdf)
+            if patlen > SIZE_OF_EVERY_BACKUP_FILE:
+                i = 1
+                while 'patfilebak%d.csv'%i in os.listdir(): i += 1
+                self.patdf.to_csv('patfile.csv',index=False,encoding='utf-8')
+                self.patdf = pd.DataFrame()
+            elif patlen % CACHE == 0: self.patdf.to_csv('patfile.csv',index=False,encoding='utf-8')
 
         if type(item)==type(LLLItem()):
             self.llldf = self.llldf.append(pd.Series(dict(item)),ignore_index=True)
-            self.llldf.to_csv('lllfile.csv',index=False)
+            llllen = len(self.llldf)
+            if llllen > SIZE_OF_EVERY_BACKUP_FILE:
+                i = 1
+                while 'lllfilebak%d.csv'%i in os.listdir(): i += 1
+                self.llldf.to_csv('lllfilebak%d.csv'%i,index=False,encoding='utf-8')
+                self.llldf = pd.DataFrame()
+            elif llllen % CACHE == 0: self.llldf.to_csv('lllfile.csv',index=False,encoding='utf-8')
 
         if type(item)==type(LLLSevItem()):
             self.lllsevdf = self.lllsevdf.append(pd.Series(dict(item)),ignore_index=True)
-            self.lllsevdf.to_csv('lllsevfile.csv',index=False)
+            lllsevlen = len(self.lllsevdf)
+            if lllsevlen > SIZE_OF_EVERY_BACKUP_FILE:
+                i = 1
+                while 'lllsevfilebak%d.csv'%i in os.listdir(): i += 1
+                self.lllsevdf.to_csv('lllsevfilebak%d.csv'%i,index=False,encoding='utf-8')
+                self.lllsevdf = pd.DataFrame()
+            elif lllsevlen % CACHE == 0: self.lllsevdf.to_csv('lllsevfile.csv',index=False,encoding='utf-8')
 
         return item
 

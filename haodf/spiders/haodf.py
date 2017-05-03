@@ -1,4 +1,4 @@
-import scrapy, re
+import re
 from scrapy import log
 from haodf.items import *
 import time
@@ -238,17 +238,23 @@ class haodf(scrapy.Spider):
 
         yield lllitem
 
-        yield scrapy.Request(response.url+r'/zixun/list.htm',callback=self.parse_lllservice,meta={'doctix':doctix})
+        yield scrapy.Request(response.urljoin(response.url+r'/zixun/list.htm'),callback=self.parse_lllservice,meta={'doctix':doctix})
 
     def parse_lllservice(self, response):
         doctix=response.meta['doctix']
         
-        for i in response.xpath('//div[@class="zixun_list"]/table/tbody/tr/td/p'):
+        for i in response.xpath('//div[@class="zixun_list"]/table//tr/td/p'):
             lllsevitem = LLLSevItem()
             lllsevitem['lll_sev_doctix'] = doctix
             lllsevitem['lll_sev_tags'] = i.xpath('./img/@title').extract()
-            yield scrapy.Request(response.urljoin(i.xpath('./a/@href')),meta={'lllsevitem':lllsevitem})
+            if not lllsevitem['lll_sev_tags']: lllsevitem['lll_sev_tags'] = np.nan
+            yield scrapy.Request(response.urljoin(i.xpath('./a/@href').extract_first()),meta={'lllsevitem':lllsevitem},callback=self.parse_lllsevpat)
 
         next_page = response.xpath('//a[contains(text(),"下一页")]/@href').extract_first()
         if next_page: yield scrapy.Request(response.urljoin(next_page),meta=response.meta,callback=self.parse_lllservice)
 
+    def parse_lllsevpat(self,response):
+        lllsevitem = response.meta['lllsevitem']
+        lllsevitem['lll_sev_date'] = response.xpath('//div[@class="yh_l_times"]/text()').extract_first()
+        if not lllsevitem['lll_sev_date']: lllsevitem['lll_sev_date'] = np.nan
+        yield lllsevitem
