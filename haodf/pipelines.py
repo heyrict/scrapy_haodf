@@ -142,7 +142,7 @@ class SaveCSVPipeline(object):
             if patlen > SIZE_OF_EVERY_BACKUP_FILE:
                 i = 1
                 while 'patfilebak%d.csv'%i in os.listdir(): i += 1
-                self.patdf.to_csv('patfile.csv',index=False,encoding='utf-8')
+                self.patdf.to_csv('patfilebak%d.csv'%i,index=False,encoding='utf-8')
                 self.patdf = pd.DataFrame()
             elif patlen % CACHE == 0: self.patdf.to_csv('patfile.csv',index=False,encoding='utf-8')
 
